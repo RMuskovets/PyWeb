@@ -8,35 +8,15 @@ def get_path_from_http_request(req):
     get_index = first_line.index('GET ') + 4
     return first_line[get_index:http_index]
 
-class BindableFunction:
-    def __init__(self, func, uri, mime='text/plain', custom_headers={}):
-        self.method = func
-        self.type = mime
-        self._headers = custom_headers
-        self.uri = uri
-
-    def __call__(self, *args, **kwargs):
-        return self.method(*args, **kwargs)
-
-    @property
-    def headers(self):
-        s = b'Content-Type: ' + str.encode(self.type, 'utf-8')
-        for key in self._headers:
-            s += str.encode(key, 'utf-8') + b': ' + str.encode(self._headers[key], 'utf-8')
-        return s
-
 class WebServer:
     def __init__(self, port=8888, threads=5, address='', debug=False):
-        self.functions = []
+        self.functions = {}
         self.port = port
         self.thread_count = threads
         self.address = address
         self.debug = debug
-    def bind(self, func_object):
-        assert isinstance(func_object, BindableFunction)
-        self.functions.append(func_object)
-    def bind_old(self, func, name):
-        self.bind(BindableFunction(func, name))
+    def bind(self, func, name):
+        self.functions['/' + name] = func
 
     def run(self):
         listen_socket = socket(AF_INET, SOCK_STREAM)
@@ -53,15 +33,12 @@ class WebServer:
                 print('Handling request: ' + request.decode())
             uri = get_path_from_http_request(request)
             text = b'HTTP/1.1 200 OK\n\nNot Found'
-            for fn in self.functions:
-                path = '/' + fn.uri
+            for path in self.functions:
                 if path == uri:
                     if debug:
                         print('Found function with binded URI: ' + path)
-                    headers = fn.headers
-                    text = b'HTTP/1.1 200 OK\n' + headers + b'\n\n' + str.encode(fn(), 'utf-8')
-                    if debug:
-                        print(text)
+                    func = self.functions[path]
+                    text = b'HTTP/1.1 200 OK\n\n' + eval('b"%s"' % func())
             conn.sendall(text)
 
         def serve():
