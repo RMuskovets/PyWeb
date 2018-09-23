@@ -35,12 +35,7 @@ class WebServer:
     def bind(self, func_object):
         assert isinstance(func_object, BindableFunction)
         self.functions.append(func_object)
-    @deprecated
-    def bind(self, func, name):
-        """
-        Deprecated. Use bind(func_object) instead.
-        Binds func to URI name.
-        """
+    def bind_old(self, func, name):
         self.bind(BindableFunction(func, name))
 
     def run(self):
@@ -59,13 +54,14 @@ class WebServer:
             uri = get_path_from_http_request(request)
             text = b'HTTP/1.1 200 OK\n\nNot Found'
             for fn in self.functions:
-                path = fn.uri
+                path = '/' + fn.uri
                 if path == uri:
                     if debug:
                         print('Found function with binded URI: ' + path)
-                    func = self.functions[path]
-                    headers = func.headers
-                    text = b'HTTP/1.1 200 OK\n' + headers + b'\n' + str.encode(func(), 'utf-8')
+                    headers = fn.headers
+                    text = b'HTTP/1.1 200 OK\n' + headers + b'\n\n' + str.encode(fn(), 'utf-8')
+                    if debug:
+                        print(text)
             conn.sendall(text)
 
         def serve():
